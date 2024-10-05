@@ -106287,62 +106287,134 @@
 
 
 
-import qrcode from 'qrcode';
-import fs from 'fs';
-import path from 'path';
-import PDFDocument from 'pdfkit';
-import config from '../../config.cjs';
 
-const toqr = async (m, gss) => {
-  try {
-    const botNumber = await gss.decodeJid(gss.user.id);
-    const prefix = config.PREFIX;
-const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
-const text = m.body.slice(prefix.length + cmd.length).trim();
+import pkg, { prepareWAMessageMedia } from '@whiskeysockets/baileys';
+const { generateWAMessageFromContent, proto } = pkg;
+import axios from 'axios';
 
-    const validCommands = ['toqr'];
+const searchRepo = async (m, Matrix) => {
+  const prefixMatch = m.body.match(/^[\\/!#.]/);
+  const prefix = prefixMatch ? prefixMatch[0] : '/';
+  const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
 
-    if (!validCommands.includes(cmd)) return;
+  const validCommands = ['menu', 'help', 'list'];
 
-    if (!text) {
-      return m.reply('Please include link or text!');
-    }
-
-    let qyuer = await qrcode.toDataURL(text, { scale: 8 });
-    let data = Buffer.from(qyuer.replace('data:image/png;base64,', ''), 'base64');
-
-    // Create a PDF document
-    const pdfPath = path.join('./', `${Date.now()}.pdf`);
-    const doc = new PDFDocument();
-    const writeStream = fs.createWriteStream(pdfPath);
-    doc.pipe(writeStream);
-
-    // Draw the QR code on the PDF
-    doc.image(data, {
-      fit: [500, 500],
-      align: 'center',
-      valign: 'center',
-    });
-
-    doc.end();
-
-    writeStream.on('finish', async () => {
-      const medi = fs.readFileSync(pdfPath);
-
-      await gss.sendMessage(m.from, {
-        document: medi,
-        mimetype: 'application/pdf',
-        fileName: 'QRCode.pdf',
-      }, {
-        quoted: m
-      });
-
-      fs.unlinkSync(pdfPath);
-    });
-  } catch (error) {
-    console.error('Error:', error);
-    m.reply('An error occurred while generating the QR code.');
+  if (validCommands.includes(cmd)) {
+    const repoUrl = `https://api.github.com/repos/devibraah/BWM-XMD`;
+    
+    await handleRepoCommand(m, Matrix, repoUrl);
   }
 };
 
-export default toqr;
+const handleRepoCommand = async (m, Matrix, repoUrl) => {
+  try {
+    const response = await axios.get(repoUrl);
+    const repoData = response.data;
+
+    const {
+      full_name,
+      name,
+      forks_count,
+      stargazers_count,
+      created_at,
+      updated_at,
+      owner,
+    } = repoData;
+
+    const messageText = `╭─────═━┈┈━═──━┈⊷
+┇ _ʙᴏᴛ ɴᴀᴍᴇ_ : *_ʙᴍᴡ ᴍᴅ_*
+┇ _ᴠᴇʀꜱɪᴏɴ_ : *_7.1.0_*     
+┇ _ᴘʟᴀᴛғᴏʀᴍ_ : *_ʟɪɴᴜx_*
+┇ _ᴅᴇᴠ_ : *_sɪʀ ɪʙʀᴀʜɪᴍ_*
+┇ _ʀᴀᴍ_ : *_20GB.14GB_*
+┇ _ᴅᴀɪʟʏ ᴜsᴇʀs_ : *${forks_count}*
+┇ _ᴄʀᴇᴀᴛᴇᴅ ᴏɴ_ : *${new Date(created_at).toLocaleDateString()}*
+╰─────═━┈┈━═──━┈⊷ 
+    `;
+
+    const repoMessage = generateWAMessageFromContent(m.from, {
+      viewOnceMessage: {
+        message: {
+          messageContextInfo: {
+            deviceListMetadata: {},
+            deviceListMetadataVersion: 2,
+          },
+          interactiveMessage: proto.Message.InteractiveMessage.create({
+            body: proto.Message.InteractiveMessage.Body.create({
+              text: messageText,
+            }),
+            footer: proto.Message.InteractiveMessage.Footer.create({
+              text: '🌏𝐁𝐄𝐒𝐓 𝐖𝐇𝐀𝐓𝐒𝐀𝐏𝐏 𝐁𝐎𝐓🌏\n\n𝐌𝐀𝐃𝐄 𝐁𝐘 𝐈𝐁𝐑𝐀𝐇𝐈𝐌 𝐀𝐃𝐀𝐌𝐒',
+            }),
+            header: proto.Message.InteractiveMessage.Header.create({
+              ...(await prepareWAMessageMedia({
+                image: {
+                  url: 'https://i.imgur.com/G3WM4D8.jpeg',
+                },
+              }, { upload: Matrix.waUploadToServer })),
+              title: '',
+              gifPlayback: true,
+              subtitle: '',
+              hasMediaAttachment: false,
+            }),
+            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+              buttons: [
+                {
+                  name: 'quick_reply',
+                  buttonParamsJson: JSON.stringify({
+                    display_text: "📜 COMMAND LIST",
+                    id: ".command",
+                  }),
+                },
+                 {
+                  name: 'quick_reply',
+                  buttonParamsJson: JSON.stringify({
+                    display_text: "⏳ PING",
+                    id: ".ping",
+                  }),
+                },
+                {
+                  name: 'cta_url',
+                  buttonParamsJson: JSON.stringify({
+                    display_text: "📂 REPO",
+                    url: 'https://github.com/devibraah/BWM-XMD',
+                  }),
+                },
+                {
+                 name: 'cta_url',
+                  buttonParamsJson: JSON.stringify({
+                    display_text: "📽 HOW TO DEPLOY",
+                    url: 'https://ibrahim-adams.vercel.app/Deploy.html',
+                  }),
+                },
+                {
+                  name: 'cta_url',
+                  buttonParamsJson: JSON.stringify({
+                    display_text: "🛰 WHATSAPP CHANNEL",
+                    url: 'https://whatsapp.com/channel/0029VaZuGSxEawdxZK9CzM0Y',
+                  }),
+                },
+              ],
+            }),
+            contextInfo: {
+              mentionedJid: [m.sender],
+              forwardingScore: 9999,
+              isForwarded: true,
+            },
+          }),
+        },
+      },
+    }, {});
+
+    await Matrix.relayMessage(repoMessage.key.remoteJid, repoMessage.message, {
+      messageId: repoMessage.key.id,
+    });
+    await m.React('🚘');
+  } catch (error) {
+    console.error('Error processing your request:', error);
+    m.reply('Error processing your request.');
+    await m.React('🚘');
+  }
+};
+
+export default searchRepo;
